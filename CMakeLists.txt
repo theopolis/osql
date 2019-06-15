@@ -6,7 +6,7 @@
 #  in the COPYING file in the root directory of this source tree).
 #  You may select, at your option, one of the above-listed licenses.
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.5.1)
 string(ASCII 27 ESC)
 macro(WARNING_LOG MESSAGE)
   message("-- ${ESC}[31m${MESSAGE}${ESC}[m")
@@ -15,13 +15,6 @@ endmacro(WARNING_LOG)
 macro(LOG MESSAGE)
   message("-- ${MESSAGE}")
 endmacro(LOG)
-
-# Set expected directory for within-build dependencies
-if(DEFINED ENV{OSQUERY_DEPS})
-  set(BUILD_DEPS "$ENV{OSQUERY_DEPS}")
-else()
-  set(BUILD_DEPS "/usr/local/osquery")
-endif()
 
 if(WIN32)
   set(WINDOWS_DEP_DIR "$ENV{ChocolateyInstall}/lib")
@@ -50,13 +43,13 @@ endif()
 # If no explicit compiler override and clang++ exists, prefer clang.
 find_program(CLANGXX_EXECUTABLE "clang++" ENV PATH)
 if(DEFINED ENV{CC})
-  set(CMAKE_C_COMPILER "$ENV{CC}")
+  #set(CMAKE_C_COMPILER "$ENV{CC}")
   LOG("Overriding C compiler from clang to $ENV{CC}")
 elseif(CLANGXX_EXECUTABLE)
   set(CMAKE_C_COMPILER "clang")
 endif()
 if(DEFINED ENV{CXX})
-  set(CMAKE_CXX_COMPILER "$ENV{CXX}")
+  #set(CMAKE_CXX_COMPILER "$ENV{CXX}")
   LOG("Overriding CXX compiler from clang++ to $ENV{CXX}")
 elseif(CLANGXX_EXECUTABLE)
   set(CMAKE_CXX_COMPILER "clang++")
@@ -66,14 +59,6 @@ if(CMAKE_CXX_COMPILER MATCHES "clang")
   set(CLANG TRUE)
 else()
   set(CLANG FALSE)
-endif()
-
-# We will add a lot of extra flags and options when using the osquery runtime.
-# The "DEPS" environment is the osquery runtime compiler and 3rd-party deps.
-if(NOT DEFINED ENV{SKIP_DEPS})
-  set(DEPS TRUE)
-else()
-  set(DEPS FALSE)
 endif()
 
 if(NOT DEFINED ENV{SKIP_CCACHE})
@@ -93,7 +78,9 @@ endif()
 # osquery additional compiler flags added by CMake.
 set(CXX_STD "c++14")
 
-find_program(PYTHON_EXECUTABLE "python" ${BUILD_DEPS} ENV PATH)
+find_program(PYTHON_EXECUTABLE "python" ENV PATH)
+
+set(THIRD_PARTY_BASE "${CMAKE_SOURCE_DIR}/third-party/prefix")
 
 # Use osquery language to set platform/os
 if(DEFINED ENV{OSQUERY_PLATFORM})
@@ -143,12 +130,14 @@ if(APPLE)
   set(OBJCXX_COMPILE_FLAGS
     "-x objective-c++ -fobjc-arc -Wno-c++11-extensions")
   set(POSIX TRUE)
+  set(THIRD_PARTY_PLATFORM darwin-x86_64)
 elseif(WIN32)
   # Windows
   # C++11 features should be on by default in 2012 and beyond.
   set(OS_WHOLELINK_PRE "-WHOLEARCHIVE:")
   set(OS_WHOLELINK_POST "")
   set(WINDOWS TRUE)
+  set(THIRD_PARTY_PLATFORM win32-x86_64)
 else()
   set(OS_WHOLELINK_PRE "-Wl,-whole-archive")
   set(OS_WHOLELINK_POST "-Wl,-no-whole-archive")
@@ -156,7 +145,6 @@ else()
   # component-specific globbing is needed.
   if(${OSQUERY_BUILD_PLATFORM} STREQUAL "freebsd")
     set(FREEBSD TRUE)
-    set(DEPS FALSE)
     include_directories("/usr/local/include")
     include_directories("/usr/include")
   else()
@@ -164,23 +152,10 @@ else()
     add_definitions(-DOSQUERY_LINUX)
   endif()
   set(POSIX TRUE)
+  set(THIRD_PARTY_PLATFORM linux-x86_64)
 endif()
 
-# Configure the CXX standard and optionally set the stdlib to LLVM's.
-if(NOT WIN32)
-  if(CLANG)
-    set(CXX_STDLIB "-stdlib=libc++")
-  else()
-    set(CXX_STDLIB "")
-  endif()
-
-  # Only allow adding CXX flags if using SKIP_DEPS.
-  if(DEFINED ENV{SKIP_DEPS})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=${CXX_STD} ${CXX_STDLIB}" CACHE STRING "" FORCE)
-  else()
-    set(CMAKE_CXX_FLAGS "-std=${CXX_STD} ${CXX_STDLIB}" CACHE STRING "" FORCE)
-  endif()
-endif()
+set(THIRD_PARTY_PREFIX ${THIRD_PARTY_BASE}/${THIRD_PARTY_PLATFORM})
 
 if(POSIX)
   if(CLANG)
@@ -232,7 +207,7 @@ elseif(WINDOWS)
 endif()
 
 set(TEST_ARGS "")
-if(LINUX AND CLANG AND DEPS)
+if(LINUX AND CLANG)
   # Use the LLVM versions of ar and ranlib to support LTO builds
   find_program(LLVMRANLIB_EXECUTABLE "llvm-ranlib" ENV PATH)
   find_program(LLVMAR_EXECUTABLE "llvm-ar" ENV PATH)
@@ -341,7 +316,7 @@ if (POSIX)
     "$<$<CONFIG:RELEASE>:-fPIC>"
     "$<$<CONFIG:RELEASE>:-fpic>"
   )
-  if (CLANG AND DEPS AND NOT FREEBSD)
+  if (CLANG AND NOT FREEBSD)
     # Only enable LTO builds when using clang on Unix, for now
     add_compile_options("$<$<CONFIG:RELEASE>:-flto=thin>")
   endif()
@@ -478,7 +453,7 @@ if(WINDOWS)
   endforeach(flag_var)
 
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LTCG")
-elseif(CLANG AND DEPS AND NOT FREEBSD)
+elseif(CLANG AND NOT FREEBSD)
   # Clang on Unix uses LTO; we also need to pass -flto when linking
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto=thin")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -flto=thin")
@@ -488,18 +463,6 @@ if(NOT IS_DIRECTORY "${CMAKE_SOURCE_DIR}/third-party/sqlite3")
   WARNING_LOG("Cannot find git submodule third-party/sqlite3 directory")
   WARNING_LOG("Please run: make deps or git submodule update --init")
   message(FATAL_ERROR "No sqlite3 directory")
-endif()
-
-# Make sure deps were built before compiling (else show warning).
-execute_process(
-  COMMAND "${CMAKE_SOURCE_DIR}/tools/provision.sh" check "${CMAKE_BINARY_DIR}"
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  OUTPUT_VARIABLE OSQUERY_DEPS_MESSAGE
-  RESULT_VARIABLE OSQUERY_DEPS_CHECK
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-if(OSQUERY_DEPS_CHECK)
-  WARNING_LOG("${OSQUERY_DEPS_MESSAGE}")
 endif()
 
 # Discover build version from an environment variable or from the git checkout.
@@ -592,23 +555,7 @@ elseif(LINUX)
   include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/third-party/sysroots/linux")
 endif()
 
-if(POSIX AND DEPS)
-  set(CMAKE_REQUIRED_INCLUDES
-    "${BUILD_DEPS}/legacy/include"
-    "${BUILD_DEPS}/include"
-  )
-
-  # The order here matters, please do not reorder.
-  if(LINUX AND CLANG)
-    include_directories(SYSTEM "${BUILD_DEPS}/include/c++/v1")
-    include_directories(SYSTEM "${BUILD_DEPS}/legacy/include")
-  endif()
-  include_directories(SYSTEM "${BUILD_DEPS}/include")
-  if(LINUX AND CLANG)
-    include_directories(SYSTEM "${BUILD_DEPS}/lib/clang/4.0.0/include")
-  endif()
-endif()
-
+include_directories("${THIRD_PARTY_PREFIX}/include")
 include_directories("${CMAKE_SOURCE_DIR}/third-party/sqlite3")
 include_directories("${CMAKE_SOURCE_DIR}/include")
 include_directories("${CMAKE_SOURCE_DIR}")
@@ -648,14 +595,6 @@ if(WINDOWS)
   endforeach()
   list(REMOVE_DUPLICATES OS_LIB_DIRS)
   link_directories(${OS_LIB_DIRS})
-else()
-  set(OS_LIB_DIRS
-    "/lib"
-    "/lib64"
-    "/usr/lib"
-    "/usr/lib64"
-    "/usr/lib/x86_64-linux-gnu/"
-    )
 endif()
 
 # Make sure the generated paths exist
@@ -716,7 +655,15 @@ if(NOT FREEBSD)
   add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/linenoise-ng")
 endif()
 
-add_subdirectory(osquery)
+option(BUILD_EXTERNAL "Build external programs" OFF)
+option(BUILD_TARGET "Specific target to build" OFF)
+
+# make newdeps
+if(BUILD_EXTERNAL)
+  include(InstallNewdepsProjects)
+else()
+  add_subdirectory(osquery)
+endif()
 
 if(NOT SKIP_TESTS)
   add_subdirectory(tools/tests)

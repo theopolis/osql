@@ -92,33 +92,51 @@ macro(ADD_OSQUERY_LINK_ADDITIONAL LINK)
   ADD_OSQUERY_LINK(FALSE ${LINK} ${ARGN})
 endmacro(ADD_OSQUERY_LINK_ADDITIONAL)
 
+macro(ADD_OSQUERY_NEWDEP LINK)
+  ADD_OSQUERY_LINK(TRUE ${LINK})
+endmacro(ADD_OSQUERY_NEWDEP)
+
+macro(GET_NEWDEPS TARGET DEPS)
+  set(${TARGET} "")
+  foreach(DEP ${DEPS} ${ARGN})
+    list(APPEND ${TARGET} "third-party-${DEP}")
+  endforeach()
+endmacro(GET_NEWDEPS)
+
 # Core/non core link helping macros (tell the build to link ALL).
 macro(ADD_OSQUERY_LINK IS_CORE LINK)
-  if(${IS_CORE})
-    ADD_OSQUERY_LINK_INTERNAL("${LINK}" "${ARGN}" OSQUERY_LINKS)
-  elseif(NOT OSQUERY_BUILD_SDK_ONLY)
-    ADD_OSQUERY_LINK_INTERNAL("${LINK}" "${ARGN}" OSQUERY_ADDITIONAL_LINKS)
+  if(BUILD_EXTERNAL)
+    if(NOT BUILD_TARGET OR "${BUILD_TARGET}" STREQUAL ${LINK})
+      add_dependencies(newdeps third-party-${LINK})
+    endif()
+  else()
+    if(${IS_CORE})
+      ADD_OSQUERY_LINK_INTERNAL("${LINK}" "${ARGN}" OSQUERY_LINKS)
+    elseif(NOT OSQUERY_BUILD_SDK_ONLY)
+      ADD_OSQUERY_LINK_INTERNAL("${LINK}" "${ARGN}" OSQUERY_ADDITIONAL_LINKS)
+    endif()
   endif()
 endmacro(ADD_OSQUERY_LINK)
 
 macro(ADD_OSQUERY_LINK_INTERNAL LINK LINK_PATHS LINK_SET)
   # The relative linking set is used for static libraries.
   set(LINK_PATHS_RELATIVE
-    "${BUILD_DEPS}/lib"
-    ${LINK_PATHS}
-    ${OS_LIB_DIRS}
-    "$ENV{HOME}"
+    "${THIRD_PARTY_PREFIX}/lib"
+    "$ENV{LIBRARY_PATH}"
+    #${LINK_PATHS}
+    #${OS_LIB_DIRS}
+    #"$ENV{HOME}"
   )
 
   # The system linking set is for legacy ABI compatibility links and libraries
   # known to exist on the system.
   set(LINK_PATHS_SYSTEM
     ${LINK_PATHS}
-    "${BUILD_DEPS}/legacy/lib"
+    "$ENV{LIBRARY_PATH}"
   )
   if(LINUX)
     # Allow the build to search the 'default' dependency home for libgcc_s.
-    list(APPEND LINK_PATHS_SYSTEM "${BUILD_DEPS}/lib")
+    list(APPEND LINK_PATHS_SYSTEM "${CMAKE_SOURCE_DIR}/third-party/prefix/lib")
   endif()
   # The OS library paths are very important for system linking.
   list(APPEND LINK_PATHS_SYSTEM ${OS_LIB_DIRS})
@@ -226,7 +244,7 @@ macro(ADD_OSQUERY_LIBRARY_ADDITIONAL TARGET)
   ADD_OSQUERY_LIBRARY(FALSE ${TARGET} ${ARGN})
 endmacro(ADD_OSQUERY_LIBRARY_ADDITIONAL)
 
-function(add_darwin_compile_flag_if_needed file) 
+function(add_darwin_compile_flag_if_needed file)
   set(EXT_POSITION -1)
   string(FIND "${SOURCE_FILE}" ".mm" EXT_POSITION)
   if(EXT_POSITION GREATER 0)
@@ -601,9 +619,9 @@ endfunction(JOIN)
 
 function(target_group_sources target root)
   get_filename_component(root ${root} ABSOLUTE)
-  
+
   get_target_property(files ${target} SOURCES)
-  
+
   foreach(file ${files})
     get_filename_component(file ${file} ABSOLUTE)
     string(REGEX MATCH "^${root}" item ${file})
@@ -613,4 +631,3 @@ function(target_group_sources target root)
   endforeach(file)
   source_group(TREE ${root} FILES ${root_files})
 endfunction()
-

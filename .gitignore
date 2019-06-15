@@ -33,6 +33,9 @@ build/
 *.patch
 *.rej
 
+# Project patches
+!CMake/patches/*
+
 # Vagrant Artifacts
 .vagrant
 .sources

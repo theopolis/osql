@@ -13,27 +13,6 @@ set -e
 # Helpful defines for the provisioning process.
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BUILD_DIR="$SCRIPT_DIR/../build"
-FORMULA_DIR="$SCRIPT_DIR/provision/formula"
-
-HOMEBREW_REPO="https://github.com/Homebrew/brew"
-LINUXBREW_REPO="https://github.com/Linuxbrew/brew"
-
-HOMEBREW_CORE_REPO="https://github.com/Homebrew/homebrew-core"
-LINUXBREW_CORE_REPO="https://github.com/Linuxbrew/homebrew-core"
-
-# Set the SHA1 commit hashes for the pinned homebrew Taps.
-# Pinning allows determinism for bottle availability, expect to update often.
-HOMEBREW_CORE="99221d219eaa59faf170945b5f94e985d036c118"
-LINUXBREW_CORE="3f057a00ae9f8b12db0c27991a0d967147088f09"
-HOMEBREW_BREW="e39b6f5891f2aa98fa2bef7775aecf73fc246afb"
-LINUXBREW_BREW="c324fccf9fb697615c048ef8160dee1f643d97a2"
-
-# These suffixes are used when building bottle tarballs.
-LINUX_BOTTLE_SUFFIX="x86_64_linux"
-DARWIN_BOTTLE_SUFFIX="sierra"
-
-# If the world needs to be rebuilt, increase the version
-DEPS_VERSION="6"
 
 # This might not be defined in docker containers, lets use a value we can always obtain
 USER=`id -u -n`
@@ -42,28 +21,28 @@ source "$SCRIPT_DIR/lib.sh"
 source "$SCRIPT_DIR/provision/lib.sh"
 
 function platform_linux_main() {
-  brew_tool osquery/osquery-local/patchelf
-  brew_tool osquery/osquery-local/zlib
-  brew_tool osquery/osquery-local/linux-headers
-  brew_tool osquery/osquery-local/sqlite
+  #brew_tool osquery/osquery-local/patchelf
+  #brew_tool osquery/osquery-local/zlib
+  #brew_tool osquery/osquery-local/linux-headers
+  #brew_tool osquery/osquery-local/sqlite
 
-  brew_tool osquery/osquery-local/glibc-legacy
-  brew_tool osquery/osquery-local/zlib-legacy
+  #brew_tool osquery/osquery-local/glibc-legacy
+  #brew_tool osquery/osquery-local/zlib-legacy
 
 
-  if [ ! -d "$DEPS_DIR/Cellar/xz" ]; then
-    log "Installing temporary xz..."
-    mkdir -p "$DEPS_DIR/opt/xz/bin"
-    ln -sf `which xz` "$DEPS_DIR/opt/xz/bin"
-  fi
+  #if [ ! -d "$DEPS_DIR/Cellar/xz" ]; then
+#    log "Installing temporary xz..."
+#    mkdir -p "$DEPS_DIR/opt/xz/bin"
+#    ln -sf `which xz` "$DEPS_DIR/opt/xz/bin"
+#  fi
 
-  brew_tool osquery/osquery-local/gcc
-  brew_tool osquery/osquery-local/llvm
-  brew_dependency osquery/osquery-local/libcpp
+#  brew_tool osquery/osquery-local/gcc
+#  brew_tool osquery/osquery-local/llvm
+#  brew_dependency osquery/osquery-local/libcpp
 
-  if [ ! -d "$DEPS_DIR/Cellar/xz" ]; then
-    rm -rf "$DEPS_DIR/opt/xz"
-  fi
+#  if [ ! -d "$DEPS_DIR/Cellar/xz" ]; then
+#    rm -rf "$DEPS_DIR/opt/xz"
+#  fi
 
 
   # Need LZMA for final builds.
@@ -193,22 +172,6 @@ function main() {
     exit 1
   fi
 
-  # Setup the osquery dependency directory.
-  # One can use a non-build location using OSQUERY_DEPS=/path/to/deps
-  if [[ ! -z "$OSQUERY_DEPS" ]]; then
-    DEPS_DIR="$OSQUERY_DEPS"
-  else
-    DEPS_DIR="/usr/local/osquery"
-  fi
-
-  deps_version $DEPS_DIR $DEPS_VERSION
-
-  if [[ "$ACTION" = "clean" ]]; then
-    do_sudo rm -rf "$DEPS_DIR"
-    return
-  fi
-  export DEPS_DIR=$DEPS_DIR
-
   # Setup the local ./build/DISTRO cmake build directory.
   if [[ ! -z "$SUDO_USER" ]]; then
     echo "chown -h $SUDO_USER $BUILD_DIR/*"
@@ -219,87 +182,12 @@ function main() {
     chown $SUDO_USER:$SUDO_GID "$WORKING_DIR" > /dev/null 2>&1 || true
   fi
 
-  # Provisioning uses either Linux or Home (OS X) brew.
-  if [[ $OS = "darwin" ]]; then
-    BREW_TYPE="darwin"
-  elif [[ $OS = "freebsd" ]]; then
-    BREW_TYPE="freebsd"
-  else
-    BREW_TYPE="linux"
-  fi
-
   sysprep $ACTION
-
-  # The dependency directory (DEPS_DIR) will contain our legacy runtime glibc
-  # and various compilers/library dependencies.
-  if [[ ! -d "$DEPS_DIR" ]]; then
-    log "creating build dir: $DEPS_DIR"
-    do_sudo mkdir -p "$DEPS_DIR"
-    do_sudo chown $USER "$DEPS_DIR" > /dev/null 2>&1 || true
-  elif [[ ! -d "$DEPS_DIR/.git" ]]; then
-    # If the dependency directory (DEPS_DIR) already exists, there will be problems
-    log "[notice] dependencies directory '$DEPS_DIR' already exists"
-  fi
 
   # Save the directory we're executing from and change to the deps directory.
   # Other imported scripts may need to reference the repository directory.
   export CURRENT_DIR=$(pwd)
-  cd "$DEPS_DIR"
 
-  # Finally run the setup of *brew, and checkout the needed Taps.
-  # This will install a local tap using a symbol to the formula subdir here.
-  export PATH="$DEPS_DIR/bin:$PATH"
-
-  if [[ ! "$BREW_TYPE" = "freebsd" ]]; then
-    setup_brew "$DEPS_DIR" "$BREW_TYPE" "$ACTION"
-    echo -n $DEPS_VERSION > $DEPS_DIR/DEPS_VERSION
-  fi
-
-  if [[ "$ACTION" = "bottle" ]]; then
-    brew_bottle "$2"
-    return
-  elif [[ "$ACTION" = "uninstall" ]]; then
-    brew_uninstall "$2"
-    return
-  elif [[ "$ACTION" = "install" ]]; then
-    # If someone explicitly requested a provision install then build a bottle.
-    export OSQUERY_BUILD_DEPS=True
-    brew_dependency "$2"
-    return
-  fi
-
-  if [[ ! -z "$OSQUERY_BUILD_DEPS" ]]; then
-    log "[notice]"
-    log "[notice] you are choosing to build dependencies instead of installing"
-    log "[notice]"
-  fi
-
-  log "running unified platform initialization"
-  clean_thrift
-  brew_clear_cache
-  if [[ "$BREW_TYPE" = "darwin" ]]; then
-    platform_darwin_main
-  elif [[ "$BREW_TYPE" = "linux" ]]; then
-    platform_linux_main
-  fi
-  brew_clear_cache
-
-  cd "$SCRIPT_DIR/../"
-
-  # Additional compilations may occur for Python and Ruby
-  export LIBRARY_PATH="$DEPS_DIR/legacy/lib:$DEPS_DIR/lib:$LIBRARY_PATH"
-  set_cc clang
-  set_cxx clang++
-
-  # Pip may have just been installed.
-  log "upgrading pip and installing python dependencies"
-  PIP=`which pip`
-  $PIP install --user --upgrade pip
-  # Pip may change locations after upgrade.
-  PIP=`which pip`
-  $PIP install --user --no-cache-dir -I -r requirements.txt
-
-  log "running auxiliary initialization"
   initialize $OS
 }
 

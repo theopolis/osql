@@ -1,0 +1,57 @@
+# All of the dependency projects are located in the projects folder.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake/projects")
+
+# Each project is a CMake ExternalProject
+include(ExternalProject)
+set(CLEAR_COMMAND rm -rf <BINARY_DIR> && cd <SOURCE_DIR> && cp -R . <BINARY_DIR> && cd <BINARY_DIR>)
+set(PATCH_DIR "${CMAKE_SOURCE_DIR}/CMake/patches")
+set(REPLACE_CMD ${CMAKE_SOURCE_DIR}/CMake/patches/replace.py)
+
+# Interface for collecting targets.
+# This is used by the make newdeps call.
+add_library(newdeps INTERFACE)
+add_custom_target(newdeps_target)
+add_dependencies(newdeps_target newdeps)
+
+include(libz)
+include(libbzip2)
+include(liblzma)
+include(libpopt)
+include(libopenssl)
+include(libberkeley-db)
+include(librdkafka)
+include(libarchive)
+include(libboost)
+include(libaws-sdk-cpp)
+include(libzstd)
+include(libgflags)
+include(libglog)
+include(libgoogle-benchmark)
+include(libmagic)
+include(librocksdb)
+include(libsleuthkit)
+include(libssdeep-cpp)
+include(libthrift)
+include(librapidjson)
+include(libxml2)
+include(libyara)
+include(libaugeas)
+include(libsmartctl)
+include(liblldpd)
+include(librpm)
+
+if(APPLE)
+else()
+  # This list is in a specific order based on dependency.
+  include(libudev)
+  include(libaudit)
+  include(libncurses)
+  include(libutil-linux)
+  include(libdevmapper)
+  include(libgpg-error)
+  include(libgcrypt)
+  include(libcryptosetup)
+  include(libdpkg)
+  include(libiptables) #This is not working
+  include(libelfin)
+endif()

@@ -1,0 +1,25 @@
+set(LIBNAME libglog)
+set(DEPS libgflags)
+
+ADD_OSQUERY_NEWDEP(${LIBNAME})
+GET_NEWDEPS(PROJECT_DEPS ${DEPS})
+
+ExternalProject_Add(third-party-${LIBNAME}
+  URL https://github.com/google/glog/archive/v0.3.5.tar.gz
+  INSTALL_DIR ${THIRD_PARTY_PREFIX}
+  STEP_TARGETS build install
+  DEPENDS ${PROJECT_DEPS}
+  CONFIGURE_COMMAND
+    cmake
+      -DCMAKE_CXX_FLAGS_RELEASE=-DNDEBUG
+      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+      -DCMAKE_BUILD_TYPE=Release
+      -DBUILD_SHARED_LIBS=OFF
+      -DBUILD_TESTING=OFF
+      <SOURCE_DIR>
+  BUILD_COMMAND
+    make -j10
+  INSTALL_COMMAND
+    make install
+  EXCLUDE_FROM_ALL ON
+)

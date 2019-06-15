@@ -21,6 +21,22 @@
 
 #include "osquery/events/linux/auditeventpublisher.h"
 
+#if !HAVE_RENAMEAT2
+#  ifndef __NR_renameat2
+#    if defined __x86_64__
+#      define __NR_renameat2 316
+#    elif defined __arm__
+#      define __NR_renameat2 382
+#    elif defined __aarch64__
+#      define __NR_renameat2 276
+#    elif defined __arc__
+#      define __NR_renameat2 276
+#    else
+#      warning "__NR_renameat2 unknown for your architecture"
+#    endif
+#  endif
+#endif
+
 namespace osquery {
 /// An inode descriptor, containing the file (or folder) path
 struct AuditdFimInodeDescriptor final {

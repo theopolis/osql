@@ -49,8 +49,12 @@ if(CLANG AND POSIX)
   )
   if(NOT FREEBSD)
     add_compile_options(
-      -Wshadow-all
       -Wno-shadow-field
+      # This comes from boost/coroutine
+      -Wno-shadow-uncaptured-local
+      # These come from boost/asio
+      -Wno-ignored-qualifiers
+      -Wno-return-std-move
     )
   endif()
 endif()

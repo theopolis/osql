@@ -5,6 +5,8 @@ CSCOPE_EXISTS := $(shell which cscope)
 SHELL := $(shell which bash)
 SOURCE_DIR := $(shell pwd)
 
+THIRD_PARTY_BASE := $(SOURCE_DIR)/third-party/prefix
+
 ifneq ($(MAKECMDGOALS),deps)
 GIT_EXISTS := $(shell which git)
 endif
@@ -19,21 +21,25 @@ DISTRO_VERSION := $(shell . ./tools/lib.sh; _distro $(DISTRO))
 DARWIN_BUILD := 10.13
 ifeq ($(DISTRO),darwin)
 	BUILD_NAME = darwin$(DISTRO_VERSION)
+	DISTRO_FLAGS += -mmacosx-version-min=$(DARWIN_BUILD)
+	DISTRO_LDFLAGS += -mmacosx-version-min=$(DARWIN_BUILD)
+	THIRD_PARTY_PLATFORM = darwin-x86_64
+ifeq ($(CC),cc)
+	CC := clang
+endif
+ifeq ($(CXX),c++)
+	CXX := clang++
+endif
 else ifeq ($(DISTRO),freebsd)
 	BUILD_NAME = freebsd$(DISTRO_VERSION)
 else
 	BUILD_NAME = $(DISTRO_VERSION)
 endif
 
-ifneq ($(OSQUERY_DEPS),)
-	DEPS_DIR = $(OSQUERY_DEPS)
-else
-	DEPS_DIR = /usr/local/osquery
-endif
-
 # This is a hack to support Vagrant and VirtualBox shared folder.
 # LLVM/LLD will use mmap with MAP_SHARED, which is not supported.
 ifeq ($(PLATFORM),Linux)
+	THIRD_PARTY_PLATFORM = linux-x86_64
 	FS_TYPE = $(shell stat --file-system --format=%T $(SOURCE_DIR) 2>&1)
 else
 	FS_TYPE = unknown
@@ -58,20 +64,14 @@ else
 	BUILD_DIR := build/$(BUILD_NAME)
 	DEBUG_BUILD_DIR := build/debug_$(BUILD_NAME)
 endif
+DEPS_BUILD_DIR := build/deps
 
 ifneq ($(VERBOSE_TEST),)
 	VERBOSE_TEST = "-V"
 endif
 
-ifeq ($(PLATFORM),Linux)
-	LINK_FLAGS = -B$(DEPS_DIR)/legacy/lib -rtlib=compiler-rt -fuse-ld=lld
-endif
-
-PATH_SET := PATH="$(DEPS_DIR)/bin:/usr/local/bin:$(PATH)"
-CMAKE := $(PATH_SET) LDFLAGS="-L$(DEPS_DIR)/legacy/lib -L$(DEPS_DIR)/lib $(LINK_FLAGS)" \
-        cmake $(CMAKE_EXTRA) $(SOURCE_DIR)/
-
-CTEST := $(PATH_SET) ctest $(SOURCE_DIR)/
+CMAKE := cmake $(CMAKE_EXTRA) $(SOURCE_DIR)/
+CTEST := ctest $(SOURCE_DIR)/
 FORMAT_COMMAND := python tools/formatting/git-clang-format.py \
 	"--commit" "master" "-f" "--style=file"
 FORMAT_CHECK_COMMAND := python tools/formatting/format-check.py
@@ -82,8 +82,26 @@ DEFINES := CTEST_OUTPUT_ON_FAILURE=1 \
 	suppressions=${ANALYSIS}/lsan.supp" \
 	ASAN_OPTIONS="suppressions=${ANALYSIS}/asan.supp" \
 	TSAN_OPTIONS="suppressions=${ANALYSIS}/tsan.supp,second_deadlock_stack=1" \
-	$(PATH_SET)
 
+ifeq ($(CC),)
+	CC := clang
+endif
+ifeq ($(CXX),)
+	CXX := clang++
+endif
+
+THIRD_PARTY_PREFIX := $(THIRD_PARTY_BASE)/$(THIRD_PARTY_PLATFORM)
+DEPS_FLAGS := -fPIC -DNDEBUG -march=x86-64 -Oz
+DEPS_DEFINES := \
+	CXX="$(CXX)" CC="$(CC)" \
+	ACLOCAL_PATH="$(THIRD_PARTY_PREFIX)/share/aclocal:$(ACLOCAL_PATH)" \
+	PKG_CONFIG_PATH="$(THIRD_PARTY_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)" \
+	LDFLAGS="-L$(THIRD_PARTY_PREFIX)/lib $(LDFLAGS) $(DISTRO_LDFLAGS)" \
+	CPATH="$(THIRD_PARTY_PREFIX)/include:$(CPATH)" \
+	CFLAGS="-I$(THIRD_PARTY_PREFIX)/include $(CFLAGS) $(DISTRO_FLAGS) $(DEPS_FLAGS)" \
+	CXXFLAGS="-I$(THIRD_PARTY_PREFIX)/include $(CXXFLAGS) $(DISTRO_FLAGS) $(DEPS_FLAGS)" \
+	PREFIX=$(THIRD_PARTY_PREFIX) \
+	CONFIG_SITE=
 
 .setup:
 ifneq ($(MAKECMDGOALS),deps)
@@ -121,17 +139,11 @@ ifeq ($(PLATFORM),Darwin)
 	@ln -sfn $(BUILD_NAME) build/darwin
 	@ln -sfn debug_$(BUILD_NAME) build/debug_darwin
 endif
-	@export PYTHONPATH="$DEPS_DIR/lib/python2.7/site-packages"
 
 	@ln -snf "$(SOURCE_DIR)/tools/tests" $(BUILD_DIR)/test_data
 	@ln -snf "$(SOURCE_DIR)/tools/tests" $(DEBUG_BUILD_DIR)/test_data
 
 all: .setup
-ifeq ($(wildcard $(DEPS_DIR)/.*),)
-	@echo "-- Warning! Cannot find dependencies install directory: $(DEPS_DIR)"
-	@echo "-- Have you run: make deps?"
-	@false
-endif
 	@if [ ! -d $(BUILD_DIR) ]; then \
 		echo "The build directory cannot be used: $(BUILD_DIR)"; \
 		echo "Consider: make distclean; make"; \
@@ -149,12 +161,12 @@ docs: .setup
 		$(DEFINES) $(MAKE) docs --no-print-directory $(MAKEFLAGS)
 
 format_check:
-	@echo "[+] clang-format (`$(PATH_SET) which clang-format`) version: `$(PATH_SET) clang-format --version`"
-	@$(PATH_SET) $(FORMAT_CHECK_COMMAND)
+	@echo "[+] clang-format (`which clang-format`) version: `clang-format --version`"
+	@$(FORMAT_CHECK_COMMAND)
 
 format_master:
-	@echo "[+] clang-format (`$(PATH_SET) which clang-format`) version: `$(PATH_SET) clang-format --version`"
-	@$(PATH_SET) $(FORMAT_COMMAND)
+	@echo "[+] clang-format (`which clang-format`) version: `clang-format --version`"
+	@$(FORMAT_COMMAND)
 
 debug: .setup
 	@cd $(DEBUG_BUILD_DIR) && DEBUG=True $(CMAKE) && \
@@ -177,8 +189,8 @@ sanitize: .setup
 		$(DEFINES) $(MAKE) --no-print-directory $(MAKEFLAGS)
 
 fuzz: .setup
-	@echo "[+] zzuf (`$(PATH_SET) which zzuf`) version: `$(PATH_SET) zzuf -V | head -n 1`"
-	@$(PATH_SET) python tools/analysis/fuzz.py
+	@echo "[+] zzuf (`which zzuf`) version: `zzuf -V | head -n 1`"
+	@python tools/analysis/fuzz.py
 
 libfuzz: .setup
 	@cd $(BUILD_DIR) && SKIP_TESTS=True SANITIZE=True FUZZ=True $(CMAKE) && \
@@ -202,13 +214,11 @@ test_debug_sdk: .setup
 		$(DEFINES) $(MAKE) test --no-print-directory $(MAKEFLAGS)
 
 check:
-	@echo "[+] cppcheck (`$(PATH_SET) which cppcheck`) version: `$(PATH_SET) cppcheck --version`"
-	@$(PATH_SET) cppcheck --quiet --enable=all --error-exitcode=0 \
-		-I ./include ./osquery
+	@echo "[+] cppcheck (`which cppcheck`) version: `\cppcheck --version`"
+	@cppcheck --quiet --enable=all --error-exitcode=0 -I ./include ./osquery
 	@# We want check to produce an error if there are critical issues.
 	@echo ""
-	@$(PATH_SET) cppcheck --quiet --enable=warning --error-exitcode=1 \
-		-I ./include ./osquery
+	@cppcheck --quiet --enable=warning --error-exitcode=1 -I ./include ./osquery
 
 audit: .setup
 	@tools/audit.sh
@@ -225,14 +235,19 @@ test_debug_build:
 	cd $(DEBUG_BUILD_DIR) && \
 		$(DEFINES) $(MAKE) test --no-print-directory $(MAKEFLAGS)
 
-deps: .setup
-	./tools/provision.sh build $(BUILD_NAME)
+#deps: .setup
+#	./tools/provision.sh build $(BUILD_NAME)
+
+newdeps: .setup
+	@mkdir -p $(DEPS_BUILD_DIR)
+	@cd $(DEPS_BUILD_DIR) && $(DEPS_DEFINES) $(CMAKE) -DBUILD_TARGET=$(TARGET) -DBUILD_EXTERNAL=ON && \
+		$(DEFINES) $(DEPS_DEFINES) $(MAKE) --no-print-directory $(MAKEFLAGS) newdeps_target
 
 sysprep: .setup
 	@SKIP_DISTRO_MAIN=0 ./tools/provision.sh build $(BUILD_NAME)
 
-build_deps: .setup
-	@OSQUERY_BUILD_DEPS=1 SKIP_DISTRO_MAIN=1 make deps
+#build_deps: .setup
+#	@OSQUERY_BUILD_DEPS=1 SKIP_DISTRO_MAIN=1 make deps
 
 tags:
 ifeq ($(CTAGS_EXISTS),)
@@ -286,8 +301,8 @@ ifeq ($(FS_TYPE),nfs)
 	rm -rf build/shared build/debug_shared
 endif
 
-depsclean:
-	./tools/provision.sh clean $(BUILD_NAME)
+#depsclean:
+#	./tools/provision.sh clean $(BUILD_NAME)
 
 package: .setup
 	# Alias for packages (do not use CPack)
@@ -310,7 +325,7 @@ sync: .setup
 	@cd $(BUILD_DIR) && PACKAGE=True $(CMAKE) && \
 		$(DEFINES) $(MAKE) sync --no-print-directory $(MAKEFLAGS)
 
-git_hooks: 
+git_hooks:
 	@mkdir -p ./.git/hooks/
 	@ln -s ../../tools/hooks/pre-commit.py ./.git/hooks/pre-commit
 
@@ -331,4 +346,3 @@ xcode:
 	@# Use _xcode suffix to avoid conflict with regular "make"
 	@# so both "make" and "make xcode" can be used at the same time
 	@./tools/generate_xcode_project.sh ${BUILD_DIR}_xcode '${CMAKE}'
-
