@@ -7,7 +7,6 @@ GET_NEWDEPS(PROJECT_DEPS ${DEPS})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://gitlab.com/cryptsetup/cryptsetup/repository/v1_7_5/archive.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   PATCH_COMMAND
     ${CLEAR_COMMAND}
@@ -23,8 +22,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       --disable-shared
       --enable-static
   BUILD_COMMAND
-    cd lib && make -j10
+    cd lib && $(MAKE)
   INSTALL_COMMAND
-    cd lib && make install
+    cd lib && $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

@@ -11,7 +11,6 @@ endif()
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://www.openssl.org/source/openssl-1.0.2o.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   PATCH_COMMAND
     ${CLEAR_COMMAND}
   CONFIGURE_COMMAND
@@ -29,12 +28,12 @@ ExternalProject_Add(third-party-${LIBNAME}
   BUILD_COMMAND
     mkdir -p <INSTALL_DIR>/etc/openssl
   COMMAND
-    make depend
+    $(MAKE) depend
   COMMAND
-    make
+    $(MAKE)
   COMMAND
-    make test
+    $(MAKE) test
   INSTALL_COMMAND
-    make install
+    $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

@@ -5,7 +5,6 @@ ADD_OSQUERY_NEWDEP(${LIBNAME})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://distfiles.macports.org/file/file-5.32.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   PATCH_COMMAND
     ${CLEAR_COMMAND}
   CONFIGURE_COMMAND
@@ -15,8 +14,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       --enable-static
       --disable-shared
   BUILD_COMMAND
-    make -j10
+    $(MAKE)
   INSTALL_COMMAND
-    make install
+    $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

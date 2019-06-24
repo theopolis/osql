@@ -5,7 +5,6 @@ ADD_OSQUERY_NEWDEP(${LIBNAME})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://github.com/gflags/gflags/archive/v2.2.1.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   CONFIGURE_COMMAND
     cmake
       -DCMAKE_CXX_FLAGS_RELEASE=-DNDEBUG
@@ -14,9 +13,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       -DBUILD_SHARED_LIBS=OFF
       <SOURCE_DIR>
   BUILD_COMMAND
-    make -j10
+    $(MAKE)
   INSTALL_COMMAND
-    make install
-
+    $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

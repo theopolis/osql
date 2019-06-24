@@ -7,7 +7,6 @@ GET_NEWDEPS(PROJECT_DEPS ${DEPS})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://www.mirrorservice.org/sites/sourceware.org/pub/lvm2/old/LVM2.2.02.173.tgz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   PATCH_COMMAND
     ${CLEAR_COMMAND}
@@ -21,15 +20,15 @@ ExternalProject_Add(third-party-${LIBNAME}
       --disable-readline
       --enable-static_link
   BUILD_COMMAND
-    make -j10 libdm.device-mapper
+    $(MAKE) libdm.device-mapper
   COMMAND
-    cd libdm && make -j10 install
+    cd libdm && $(MAKE) install
   COMMAND
-    cd lib && make -j10
+    cd lib && $(MAKE)
   COMMAND
-    cd libdaemon && make -j10
+    cd libdaemon && $(MAKE)
   COMMAND
-    cd liblvm && make -j10 install
+    cd liblvm && $(MAKE) install
   INSTALL_COMMAND
     cp lib/liblvm-internal.a <INSTALL_DIR>/lib
   COMMAND

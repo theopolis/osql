@@ -24,8 +24,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       --disable-shared
       --enable-static
   BUILD_COMMAND
-    make -j10
+    $(MAKE)
   INSTALL_COMMAND
-    make install
+    $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

@@ -1,5 +1,5 @@
 set(LIBNAME librdkafka)
-set(DEPS libz libbzip2)
+set(DEPS libz libbzip2 libopenssl)
 
 ADD_OSQUERY_NEWDEP(${LIBNAME})
 GET_NEWDEPS(PROJECT_DEPS ${DEPS})
@@ -7,7 +7,6 @@ GET_NEWDEPS(PROJECT_DEPS ${DEPS})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://github.com/edenhill/librdkafka/archive/v1.0.1.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   PATCH_COMMAND
     ${CLEAR_COMMAND} &&
@@ -22,8 +21,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       --disable-lz4-ext
       --enable-static
   BUILD_COMMAND
-    cd src && make -j10
+    cd src && $(MAKE)
   INSTALL_COMMAND
-    cd src && make install
+    cd src && $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

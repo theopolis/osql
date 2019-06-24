@@ -7,7 +7,6 @@ GET_NEWDEPS(PROJECT_DEPS ${DEPS})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://www.kernel.org/pub/linux/utils/util-linux/v2.27/util-linux-2.27.1.tar.xz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   PATCH_COMMAND
     ${CLEAR_COMMAND}
@@ -27,8 +26,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       --without-readline
       --enable-static
   BUILD_COMMAND
-    make -j10
+    $(MAKE)
   INSTALL_COMMAND
-    make install
+    $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

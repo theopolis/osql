@@ -7,7 +7,6 @@ GET_NEWDEPS(PROJECT_DEPS ${DEPS})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://github.com/apache/thrift/archive/0.11.0.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   PATCH_COMMAND
     ${CLEAR_COMMAND} &&
@@ -47,9 +46,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       --with-openssl=<INSTALL_DIR>
       --with-boost=<INSTALL_DIR>
   BUILD_COMMAND
-    make -j10
+    $(MAKE)
   INSTALL_COMMAND
-    # ENV.delete "MACOSX_DEPLOYMENT_TARGET"
-    make install
+    $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

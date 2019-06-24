@@ -23,6 +23,7 @@ ExternalProject_Add(third-party-${LIBNAME}
   BUILD_COMMAND
     $(MAKE) libudev/libudev.la
   INSTALL_COMMAND
-    $(MAKE) install-exec
+    $(MAKE) install-exec &&
+    $(MAKE) install-includeHEADERS
   EXCLUDE_FROM_ALL ON
 )

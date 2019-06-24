@@ -11,7 +11,6 @@ endif()
 ExternalProject_Add(third-party-${LIBNAME}
   URL http://ftp.rpm.org/releases/rpm-4.14.x/rpm-4.14.1.tar.bz2
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   PATCH_COMMAND
     ${CLEAR_COMMAND} &&

@@ -7,7 +7,6 @@ GET_NEWDEPS(PROJECT_DEPS ${DEPS})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://github.com/google/glog/archive/v0.3.5.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   CONFIGURE_COMMAND
     cmake
@@ -18,8 +17,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       -DBUILD_TESTING=OFF
       <SOURCE_DIR>
   BUILD_COMMAND
-    make -j10
+    $(MAKE)
   INSTALL_COMMAND
-    make install
+    $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

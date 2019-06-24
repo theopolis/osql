@@ -5,7 +5,6 @@ ADD_OSQUERY_NEWDEP(${LIBNAME})
 ExternalProject_Add(third-party-${LIBNAME}
   URL http://pkgs.fedoraproject.org/repo/pkgs/libdb/db-5.3.28.tar.gz/b99454564d5b4479750567031d66fe24/db-5.3.28.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   PATCH_COMMAND
     ${CLEAR_COMMAND} &&
     ${REPLACE_CMD} "__atomic_compare_exchange" "__atomic_compare_exchange_db" "src/dbinc/atomic.h" &&
@@ -23,8 +22,8 @@ ExternalProject_Add(third-party-${LIBNAME}
       --disable-shared
       --enable-static
   BUILD_COMMAND
-    cd build_unix && make -j10
+    cd build_unix && $(MAKE)
   INSTALL_COMMAND
-    cd build_unix && make install
+    cd build_unix && $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )

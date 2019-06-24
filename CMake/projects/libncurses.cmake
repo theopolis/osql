@@ -5,7 +5,6 @@ ADD_OSQUERY_NEWDEP(${LIBNAME})
 ExternalProject_Add(third-party-${LIBNAME}
   URL http://ftpmirror.gnu.org/ncurses/ncurses-6.0.tar.gz
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   PATCH_COMMAND
     ${CLEAR_COMMAND}
   CONFIGURE_COMMAND
@@ -17,9 +16,9 @@ ExternalProject_Add(third-party-${LIBNAME}
       --with-gmp=no
       --with-static
   BUILD_COMMAND
-    make -j10
+    $(MAKE)
   INSTALL_COMMAND
-    make install
+    $(MAKE) install
     # cp misc/ncurses.pc ${THIRD_PARTY_PREFIX}/lib/pkgconfig &&
   COMMAND
     ln -sf ncurses/curses.h ${THIRD_PARTY_PREFIX}/include/curses.h

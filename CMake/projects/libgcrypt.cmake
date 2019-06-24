@@ -7,7 +7,6 @@ GET_NEWDEPS(PROJECT_DEPS ${DEPS})
 ExternalProject_Add(third-party-${LIBNAME}
   URL https://gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.8.1.tar.bz2
   INSTALL_DIR ${THIRD_PARTY_PREFIX}
-  STEP_TARGETS build install
   DEPENDS ${PROJECT_DEPS}
   PATCH_COMMAND
     ${CLEAR_COMMAND}
@@ -29,16 +28,16 @@ ExternalProject_Add(third-party-${LIBNAME}
   COMMAND
     ed -s - config.h < ${PATCH_DIR}/libgcrypt-1.8.1-1-config.h.ed
   BUILD_COMMAND
-    cd cipher && make -j10
+    cd cipher && $(MAKE)
   COMMAND
-    cd random && make -j10
+    cd random && $(MAKE)
   COMMAND
-    cd mpi && make -j10
+    cd mpi && $(MAKE)
   COMMAND
-    cd compat && make -j10
+    cd compat && $(MAKE)
   COMMAND
-    cd src && make -j10
+    cd src && $(MAKE)
   INSTALL_COMMAND
-    cd src && make install
+    cd src && $(MAKE) install
   EXCLUDE_FROM_ALL ON
 )
